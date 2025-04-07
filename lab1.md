@@ -1,6 +1,6 @@
 # Lab 1 - Lab Setup and trivial tests
 
-Due Date: Tues 4/11/2025
+Due Date: Friday 4/11/2025
 
 This lab is worth 20 Points. Project check-off takes
 place during the TA section.
