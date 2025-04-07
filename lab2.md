@@ -91,7 +91,7 @@ c
 To start gdb using this gdbinit you run this command:
 
 ```bash
-riscv-esp32-elf-gdb -x gdbinit build/lab2_debug.elf
+riscv32-esp-elf-gdb -x gdbinit lab2/lab2_image.elf
 ```
 
 Note that this cross-compiled gdb is quite finicky.  You may need to run mon
