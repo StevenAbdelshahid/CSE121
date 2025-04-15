@@ -18,7 +18,7 @@ should convert it to a .bin, then upload it to the ESP32 board, then run GDB wit
 You can see the full dissasembly of "lab2/lab2_debug.elf" with the following command:
 
 ```bash
-riscv64-unknown-elf-objdump -D lab2/lab2_image.elf > lab2_image.S
+riscv32-esp-elf-objdump -D lab2/lab2_image.elf > lab2_image.S
 ```
 
 Some things that you will need to "figure out".
