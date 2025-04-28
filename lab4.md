@@ -1,4 +1,4 @@
-# Lab 4 - Create a BlueTooth Mouse
+# Lab 4 - Create a Bluetooth Mouse
 
 Due Date: Friday 5/2/2025
 
@@ -20,7 +20,7 @@ the board is inclined UP and LEFT, it should print "UP LEFT".
 
 ## Lab4.2: Move mouse left/right (5 points)
 
-This lab requires you to reproduce most of the class Bluetooth project but
+This lab requires you to start with the ESP-IDF Bluetooth HID device example but
 instead of showing the volume up/down, it should move the mouse left to right
 on the screen, then pause for 5 seconds.
 
