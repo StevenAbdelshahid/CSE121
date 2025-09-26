@@ -1,6 +1,6 @@
 # Lab 3 - Display Humidity and Temperature
 
-Due Date: Friday 4/25/2025
+Due Date: Friday 10/24/2025
 
 This lab is worth 20 Points. The overall objective of this task is to develop a
 new C++ library in ESP32 to control the display (I2C) and use the same I2C to

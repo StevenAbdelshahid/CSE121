@@ -1,6 +1,6 @@
 # Lab 2 - Debugging and Humidity and Temperature
 
-Due Date: Friday 4/18/2025
+Due Date: Friday 10/17/2025
 
 This lab is worth 20 Points. Project check-off will take place some time after
 the lab has been submitted to Gradescope during a future scheduled TA section. The
