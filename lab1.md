@@ -231,8 +231,8 @@ FACE desktop which adds extra user friendly functionality.
 
 ## Lab1.3: Flash LED on ESP32 (5 Points)
 
-The ESP32C3 board that has a LED connected to GPIO2. Write a simple C program
-that flashes the LED on/off once per second.
+The [ESP32C3 board](https://github.com/esp-rs/esp-rust-board?tab=readme-ov-file#ios) has a LED strip connected to GPIO2.
+Write a simple C program that flashes the LED strip on/off once per second. (Do not use GPIO7, as it is reserved for JTAG).
 
 The `app_main` should call something like this:
 
