@@ -11,7 +11,7 @@ Please ensure your report is uploaded to Lab 1 Report on Gradescope before check
 You may demo after the deadline as long as the code is submitted on time.
 
 ### What to include in your lab report
-1. Screenshot of eduroam connection.
+1. Screenshot of WiFi connection.
 2. How you solved the lab, and difficulties you overcame.
 3. Description of AI usage with full chat log.
 
@@ -31,7 +31,7 @@ If you are missing any parts when you return it, you will have to pay.
 ## Lab1.1: setup Pi4 (10 points)
 
 Lab1.1 requires you to assemble the components leading to getting
-a working Pi4 module and case, functioning with eduroam WiFi and
+a working Pi4 module and case, functioning with WiFi and
 and linux.
 
 The installation should be based on **ubuntu server**
@@ -158,11 +158,15 @@ FACE desktop which adds extra user friendly functionality.
    You can complete the rest of this lab, using the command line,
    or X-Windows.
 
-11. Connect/setup to eduroam (AND INCLUDE IT in report.pdf)
+11. Connect/setup to WiFi (AND INCLUDE IT in report.pdf)
 
    Once you've installed the XFCE4 window manager, boot into the desktop and you
-   can connect to eduroam through the Wifi Manager GUI. Include a screenshot of
+   can connect to the internet through the Wifi Manager GUI. Include a screenshot of
    this in your lab report.
+
+   1. You may connect to the JBE-301A lab WiFi. (Instructions on Canvas).
+   2. You may connect to eduroam, which requires additional steps that course staff will NOT help with.
+   3. You may connect to a phone hotspot only if your phone data plan will last you the rest of the quarter.
 
 ## Lab1.2: Run hello world in ESP32 (5 points)
 
