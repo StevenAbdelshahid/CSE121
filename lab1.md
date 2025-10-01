@@ -197,7 +197,7 @@ FACE desktop which adds extra user friendly functionality.
    ./install.sh esp32c3
    ```
 
-3. Get simple hello_world running
+3. Create hello_world project
 
    ```bash
    # Setup (once)
@@ -206,7 +206,6 @@ FACE desktop which adds extra user friendly functionality.
    cp -a examples/get-started/hello_world ~/esp/
    ```
 
-   Patch the hello world (print your name, not mine).
    Edit the "hello_world_main.c" so that after printing the
    "Minimum free heap..." it prints your name. E.g:
 
@@ -214,18 +213,19 @@ FACE desktop which adds extra user friendly functionality.
    printf("Your Name Here\n"); // Substitute your name
    ```
 
+4. Build and flash hello_word
+
+
    ```bash
-   # Build
    cd ~/esp/hello_world
+   # `set-target` generates the sdkconfig file and build directory
    idf.py set-target esp32c3
-   cd build
-   ninja
+   # `build` will run the ninja for you
+   idf.py build
    ```
 
-4. Deploy hello_word
-
-    Connect the ESP32 board to the raspberry PI4 USB
-    (Notice ESP32 has a USB-C, must connect to PI4 USB-2 "blue is OK")
+   Connect the ESP32 board to the raspberry PI4 USB
+   (Notice ESP32 has a USB-C, must connect to PI4 USB-2 "blue is OK")
 
    ```bash
    idf.py flash
