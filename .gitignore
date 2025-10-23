@@ -1,0 +1,15 @@
+# build artifacts
+build/
+*.bin
+*.elf
+*.map
+*.log
+# SDKs / externals / zips
+third_party/
+v5.5.1/
+*.zip
+# VSCode cruft
+.vscode/
+# Python/venv
+.venv/
+__pycache__/
