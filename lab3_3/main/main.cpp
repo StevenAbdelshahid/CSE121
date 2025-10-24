@@ -60,17 +60,6 @@ static esp_err_t i2c_read_bytes(uint8_t addr7, uint8_t* out, size_t n) {
     return err;
 }
 
-// ---------- Bus scanner (for your logs) ----------
-static void i2c_scan_log() {
-    ESP_LOGI(TAG, "I2C scan:");
-    for (uint8_t a = 0x03; a <= 0x77; ++a) {
-        if (i2c_probe(a) == ESP_OK) {
-            ESP_LOGI(TAG, "  Found device at 0x%02X", a);
-        }
-        vTaskDelay(pdMS_TO_TICKS(2));
-    }
-}
-
 // ---------- CRC used by Sensirion (SHTxx) ----------
 static bool crc_sensirion_2b(const uint8_t *d, uint8_t crc8) {
     uint8_t c = 0xFF;
@@ -139,16 +128,14 @@ static bool aht20_measure(uint8_t addr, float* tC, float* RH) {
 }
 
 static bool si7021_measure(float* tC, float* RH) {
-    // Measure RH (hold master): 0xE5
-    uint8_t cmd_rh = 0xE5;
+    uint8_t cmd_rh = 0xE5; // Measure RH (hold)
     if (i2c_write_bytes(ADDR_SI7021, &cmd_rh, 1) != ESP_OK) return false;
     uint8_t rh2[2];
     if (i2c_read_bytes(ADDR_SI7021, rh2, 2) != ESP_OK) return false;
     uint16_t rawRH = (uint16_t(rh2[0]) << 8) | rh2[1];
     *RH = ((125.0f * rawRH) / 65536.0f) - 6.0f;
 
-    // Measure T (hold master): 0xE3
-    uint8_t cmd_t = 0xE3;
+    uint8_t cmd_t = 0xE3; // Measure T (hold)
     if (i2c_write_bytes(ADDR_SI7021, &cmd_t, 1) != ESP_OK) return false;
     uint8_t t2[2];
     if (i2c_read_bytes(ADDR_SI7021, t2, 2) != ESP_OK) return false;
@@ -170,87 +157,44 @@ static uint8_t    g_addr = 0;
 static int        g_mux_channel = -1; // -1 => no mux
 
 static bool detect_sensor() {
-    i2c_scan_log(); // show what's actually present
-
-    // ROOT BUS: try direct sensors
+    // Try direct SHTC3 @0x70
     if (i2c_probe(ADDR_SHTC3) == ESP_OK) {
         float t, h;
-        if (shtc3_measure(&t, &h)) {
-            g_kind = SensorKind::SHTC3_DIRECT; g_addr = ADDR_SHTC3; g_mux_channel = -1;
-            ESP_LOGI(TAG, "Detected SHTC3 @0x70 (direct): %.1f C, %.0f %%", t, h);
-            return true;
-        }
-        // 0x70 ACK but SHTC3 fails => likely TCA9548A mux
-        ESP_LOGW(TAG, "0x70 ACKs but not SHTC3; assuming TCA9548A mux");
+        if (shtc3_measure(&t, &h)) { g_kind = SensorKind::SHTC3_DIRECT; g_addr = ADDR_SHTC3; g_mux_channel = -1; return true; }
+        // treat 0x70 as mux and search channels
         for (int ch = 0; ch < 8; ++ch) {
             if (tca_select(ch) != ESP_OK) continue;
             vTaskDelay(pdMS_TO_TICKS(2));
 
-            // Try SHT3x
             if (i2c_probe(ADDR_SHT3X_1) == ESP_OK || i2c_probe(ADDR_SHT3X_2) == ESP_OK) {
                 uint8_t addr = (i2c_probe(ADDR_SHT3X_1) == ESP_OK) ? ADDR_SHT3X_1 : ADDR_SHT3X_2;
-                float tC, RH;
-                if (sht3x_measure(addr, &tC, &RH)) {
-                    g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = ch;
-                    ESP_LOGI(TAG, "Detected SHT3x @0x%02X via mux ch%d: %.1f C, %.0f %%", addr, ch, tC, RH);
-                    return true;
-                }
+                float tC, RH; if (sht3x_measure(addr, &tC, &RH)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = ch; return true; }
             }
-            // Try AHT20
             if (i2c_probe(ADDR_AHT20) == ESP_OK) {
                 if (aht20_init(ADDR_AHT20)) {
-                    float tC, RH;
-                    if (aht20_measure(ADDR_AHT20, &tC, &RH)) {
-                        g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = ch;
-                        ESP_LOGI(TAG, "Detected AHT20 @0x38 via mux ch%d: %.1f C, %.0f %%", ch, tC, RH);
-                        return true;
-                    }
+                    float tC, RH; if (aht20_measure(ADDR_AHT20, &tC, &RH)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = ch; return true; }
                 }
             }
-            // Try Si7021
             if (i2c_probe(ADDR_SI7021) == ESP_OK) {
-                float tC, RH;
-                if (si7021_measure(&tC, &RH)) {
-                    g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = ch;
-                    ESP_LOGI(TAG, "Detected Si7021 @0x40 via mux ch%d: %.1f C, %.0f %%", ch, tC, RH);
-                    return true;
-                }
+                float tC, RH; if (si7021_measure(&tC, &RH)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = ch; return true; }
             }
         }
-        ESP_LOGW(TAG, "No supported sensor found behind mux @0x70.");
         return false;
     }
 
-    // If 0x70 doesn’t ACK, still try common root-bus sensors.
+    // Root-bus fallbacks
     if (i2c_probe(ADDR_SHT3X_1) == ESP_OK || i2c_probe(ADDR_SHT3X_2) == ESP_OK) {
         uint8_t addr = (i2c_probe(ADDR_SHT3X_1) == ESP_OK) ? ADDR_SHT3X_1 : ADDR_SHT3X_2;
-        float tC, RH;
-        if (sht3x_measure(addr, &tC, &RH)) {
-            g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = -1;
-            ESP_LOGI(TAG, "Detected SHT3x @0x%02X (root): %.1f C, %.0f %%", addr, tC, RH);
-            return true;
-        }
+        float tC, RH; if (sht3x_measure(addr, &tC, &RH)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = -1; return true; }
     }
     if (i2c_probe(ADDR_AHT20) == ESP_OK) {
         if (aht20_init(ADDR_AHT20)) {
-            float tC, RH;
-            if (aht20_measure(ADDR_AHT20, &tC, &RH)) {
-                g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = -1;
-                ESP_LOGI(TAG, "Detected AHT20 @0x38 (root): %.1f C, %.0f %%", tC, RH);
-                return true;
-            }
+            float tC, RH; if (aht20_measure(ADDR_AHT20, &tC, &RH)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = -1; return true; }
         }
     }
     if (i2c_probe(ADDR_SI7021) == ESP_OK) {
-        float tC, RH;
-        if (si7021_measure(&tC, &RH)) {
-            g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = -1;
-            ESP_LOGI(TAG, "Detected Si7021 @0x40 (root): %.1f C, %.0f %%", tC, RH);
-            return true;
-        }
+        float tC, RH; if (si7021_measure(&tC, &RH)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = -1; return true; }
     }
-
-    ESP_LOGW(TAG, "No SHTC3 at 0x70, and no common sensors on root bus.");
     return false;
 }
 
@@ -270,45 +214,41 @@ static bool read_sensor(float* tC, float* RH) {
 
 // -------------------- Main --------------------
 extern "C" void app_main(void) {
-    ESP_LOGI(TAG, "Starting Lab 3.3 (ESP32-C3, LCD + Humidity/Temp on I2C0)");
+    // Quiet logs
+    esp_log_level_set("DFRobot_LCD", ESP_LOG_WARN);
+    esp_log_level_set(TAG, ESP_LOG_WARN);
 
     // Init LCD (installs I2C driver once @100k)
     DFRobot_LCD lcd(I2C_PORT, SDA_PIN, SCL_PIN, LCD_ADDR);
     lcd.init();
 
-    // Labels
+    // Labels (match your photo)
     lcd.clear();
-    lcd.setCursor(0, 0); lcd.printstr("Temp:      C");
-    lcd.setCursor(0, 1); lcd.printstr("RH:        %");
+    lcd.setCursor(0, 0); lcd.printstr("Temp:");
+    lcd.setCursor(0, 1); lcd.printstr("Hum :");
 
-    // Detect sensor (prints scan to logs so you can verify addresses)
-    if (!detect_sensor()) {
-        lcd.setCursor(0, 0); lcd.printstr("Temp:  N/A  C ");
-        lcd.setCursor(0, 1); lcd.printstr("RH:    N/A  % ");
-        ESP_LOGE(TAG, "No supported humidity sensor detected. Check wiring/addr.");
-    }
+    const uint8_t COL_VAL = 6;  // values start column
 
-    char buf[17];
+    // Detect sensor once (no logs, no "ERR/N/A" on screen)
+    (void)detect_sensor();
+
+    char buf[8];
     while (true) {
         float tC = 0.0f, RH = 0.0f;
-        bool ok = read_sensor(&tC, &RH);
-
-        if (ok) {
-            float t_round = roundf(tC * 10.0f) / 10.0f;
-            snprintf(buf, sizeof(buf), "%5.1f", t_round);
-            lcd.setCursor(6, 0);
-            lcd.printstr(buf);
-
+        if (read_sensor(&tC, &RH)) {
+            int t_i  = (int)lroundf(tC);
             int rh_i = (int)lroundf(RH);
-            snprintf(buf, sizeof(buf), "%3d", rh_i);
-            lcd.setCursor(4, 1);
-            lcd.printstr(buf);
-        } else {
-            lcd.setCursor(0, 0); lcd.printstr("Temp:   ERR C ");
-            lcd.setCursor(0, 1); lcd.printstr("RH:     ERR % ");
-            ESP_LOGE(TAG, "Sensor read failed.");
-        }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+            // Fixed-width fields to overwrite old content
+            snprintf(buf, sizeof(buf), "%3dC", t_i);
+            lcd.setCursor(COL_VAL, 0);
+            lcd.printstr(buf);
+
+            snprintf(buf, sizeof(buf), "%3d%%", rh_i);
+            lcd.setCursor(COL_VAL, 1);
+            lcd.printstr(buf);
+        }
+        // On read fail: keep last values; don’t log or change labels.
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 Hz
     }
 }
