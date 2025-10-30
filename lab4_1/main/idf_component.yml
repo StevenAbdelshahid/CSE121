@@ -1,0 +1,5 @@
+# main/component.yml
+dependencies:
+  idf: ">=5.1.0"                 # constrain, don't pull 'espressif/esp-idf'
+  esp-idf-lib/i2cdev: "^2.0.3"
+  esp-idf-lib/icm42670: "^1.0.7"

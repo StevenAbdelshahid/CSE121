@@ -22,7 +22,7 @@ static constexpr uint8_t ADDR_SHTC3   = 0x70; // also a common mux addr
 static constexpr uint8_t ADDR_SHT3X_1 = 0x44;
 static constexpr uint8_t ADDR_SHT3X_2 = 0x45;
 static constexpr uint8_t ADDR_AHT20   = 0x38;
-static constexpr uint8_t ADDR_SI7021  = 0x40; // rare but easy to support
+static constexpr uint8_t ADDR_SI7021  = 0x40; // sometimes used
 static constexpr uint8_t ADDR_TCA9548 = 0x70; // mux
 
 // ---------- I2C helpers (legacy driver, same as your LCD lib) ----------
@@ -35,7 +35,6 @@ static esp_err_t i2c_probe(uint8_t addr7) {
     i2c_cmd_link_delete(h);
     return err;
 }
-
 static esp_err_t i2c_write_bytes(uint8_t addr7, const uint8_t* bytes, size_t n) {
     i2c_cmd_handle_t h = i2c_cmd_link_create();
     esp_err_t err = i2c_master_start(h);
@@ -46,7 +45,6 @@ static esp_err_t i2c_write_bytes(uint8_t addr7, const uint8_t* bytes, size_t n) 
     i2c_cmd_link_delete(h);
     return err;
 }
-
 static esp_err_t i2c_read_bytes(uint8_t addr7, uint8_t* out, size_t n) {
     if (n == 0) return ESP_OK;
     i2c_cmd_handle_t h = i2c_cmd_link_create();
@@ -91,7 +89,6 @@ static bool shtc3_measure(float* tC, float* RH) {
     (void)i2c_write_bytes(ADDR_SHTC3, sleep, 2);
     return true;
 }
-
 static bool sht3x_measure(uint8_t addr, float* tC, float* RH) {
     uint8_t cmd[2] = { 0x24, 0x00 }; // single-shot, high rep, no stretch
     if (i2c_write_bytes(addr, cmd, 2) != ESP_OK) return false;
@@ -105,7 +102,6 @@ static bool sht3x_measure(uint8_t addr, float* tC, float* RH) {
     *RH = 100.0f * (rH / 65535.0f);
     return true;
 }
-
 static bool aht20_init(uint8_t addr) {
     uint8_t rst = 0xBA;
     (void)i2c_write_bytes(addr, &rst, 1);
@@ -113,7 +109,6 @@ static bool aht20_init(uint8_t addr) {
     uint8_t init_cmd[3] = { 0xBE, 0x08, 0x00 };
     return (i2c_write_bytes(addr, init_cmd, 3) == ESP_OK);
 }
-
 static bool aht20_measure(uint8_t addr, float* tC, float* RH) {
     uint8_t trig[3] = { 0xAC, 0x33, 0x00 };
     if (i2c_write_bytes(addr, trig, 3) != ESP_OK) return false;
@@ -126,7 +121,6 @@ static bool aht20_measure(uint8_t addr, float* tC, float* RH) {
     *tC = (rT * 200.0f) / 1048576.0f - 50.0f;
     return true;
 }
-
 static bool si7021_measure(float* tC, float* RH) {
     uint8_t cmd_rh = 0xE5; // Measure RH (hold)
     if (i2c_write_bytes(ADDR_SI7021, &cmd_rh, 1) != ESP_OK) return false;
@@ -150,7 +144,7 @@ static esp_err_t tca_select(uint8_t channel) {
     return i2c_write_bytes(ADDR_TCA9548, &mask, 1);
 }
 
-// ---------- Detection ----------
+// ---------- Detection (quiet) ----------
 enum class SensorKind { NONE, SHTC3_DIRECT, SHT3X, AHT20, SI7021 };
 static SensorKind g_kind = SensorKind::NONE;
 static uint8_t    g_addr = 0;
@@ -165,18 +159,17 @@ static bool detect_sensor() {
         for (int ch = 0; ch < 8; ++ch) {
             if (tca_select(ch) != ESP_OK) continue;
             vTaskDelay(pdMS_TO_TICKS(2));
-
             if (i2c_probe(ADDR_SHT3X_1) == ESP_OK || i2c_probe(ADDR_SHT3X_2) == ESP_OK) {
                 uint8_t addr = (i2c_probe(ADDR_SHT3X_1) == ESP_OK) ? ADDR_SHT3X_1 : ADDR_SHT3X_2;
-                float tC, RH; if (sht3x_measure(addr, &tC, &RH)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = ch; return true; }
+                float tc, rh; if (sht3x_measure(addr, &tc, &rh)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = ch; return true; }
             }
             if (i2c_probe(ADDR_AHT20) == ESP_OK) {
                 if (aht20_init(ADDR_AHT20)) {
-                    float tC, RH; if (aht20_measure(ADDR_AHT20, &tC, &RH)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = ch; return true; }
+                    float tc, rh; if (aht20_measure(ADDR_AHT20, &tc, &rh)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = ch; return true; }
                 }
             }
             if (i2c_probe(ADDR_SI7021) == ESP_OK) {
-                float tC, RH; if (si7021_measure(&tC, &RH)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = ch; return true; }
+                float tc, rh; if (si7021_measure(&tc, &rh)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = ch; return true; }
             }
         }
         return false;
@@ -185,15 +178,15 @@ static bool detect_sensor() {
     // Root-bus fallbacks
     if (i2c_probe(ADDR_SHT3X_1) == ESP_OK || i2c_probe(ADDR_SHT3X_2) == ESP_OK) {
         uint8_t addr = (i2c_probe(ADDR_SHT3X_1) == ESP_OK) ? ADDR_SHT3X_1 : ADDR_SHT3X_2;
-        float tC, RH; if (sht3x_measure(addr, &tC, &RH)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = -1; return true; }
+        float tc, rh; if (sht3x_measure(addr, &tc, &rh)) { g_kind = SensorKind::SHT3X; g_addr = addr; g_mux_channel = -1; return true; }
     }
     if (i2c_probe(ADDR_AHT20) == ESP_OK) {
         if (aht20_init(ADDR_AHT20)) {
-            float tC, RH; if (aht20_measure(ADDR_AHT20, &tC, &RH)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = -1; return true; }
+            float tc, rh; if (aht20_measure(ADDR_AHT20, &tc, &rh)) { g_kind = SensorKind::AHT20; g_addr = ADDR_AHT20; g_mux_channel = -1; return true; }
         }
     }
     if (i2c_probe(ADDR_SI7021) == ESP_OK) {
-        float tC, RH; if (si7021_measure(&tC, &RH)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = -1; return true; }
+        float tc, rh; if (si7021_measure(&tc, &rh)) { g_kind = SensorKind::SI7021; g_addr = ADDR_SI7021; g_mux_channel = -1; return true; }
     }
     return false;
 }
@@ -214,41 +207,60 @@ static bool read_sensor(float* tC, float* RH) {
 
 // -------------------- Main --------------------
 extern "C" void app_main(void) {
-    // Quiet logs
-    esp_log_level_set("DFRobot_LCD", ESP_LOG_WARN);
+    // Silence LCD + keep our app quiet
+    esp_log_level_set("DFRobot_LCD", ESP_LOG_NONE);
     esp_log_level_set(TAG, ESP_LOG_WARN);
 
-    // Init LCD (installs I2C driver once @100k)
+    // Init LCD
     DFRobot_LCD lcd(I2C_PORT, SDA_PIN, SCL_PIN, LCD_ADDR);
     lcd.init();
 
     // Labels (match your photo)
     lcd.clear();
-    lcd.setCursor(0, 0); lcd.printstr("Temp:");
-    lcd.setCursor(0, 1); lcd.printstr("Hum :");
+    const uint8_t COL_VAL = 7;  // values start two spaces after label
 
-    const uint8_t COL_VAL = 6;  // values start column
-
-    // Detect sensor once (no logs, no "ERR/N/A" on screen)
+    // Detect sensor once (quiet)
     (void)detect_sensor();
 
-    char buf[8];
+    char buf[16];
     while (true) {
+        // Re-assert labels each loop so they never disappear
+        lcd.setCursor(0, 0); lcd.printstr("Temp:");
+        lcd.setCursor(0, 1); lcd.printstr("Hum :");
+
         float tC = 0.0f, RH = 0.0f;
         if (read_sensor(&tC, &RH)) {
-            int t_i  = (int)lroundf(tC);
-            int rh_i = (int)lroundf(RH);
-
-            // Fixed-width fields to overwrite old content
-            snprintf(buf, sizeof(buf), "%3dC", t_i);
+            // Display-only calibration: -2.0 C; one decimal
+            float t_disp = roundf((tC - 2.0f) * 10.0f) / 10.0f;
+            // Temperature field: fixed width + trailing space to erase leftovers
+            snprintf(buf, sizeof(buf), "%5.1fC ", t_disp);
             lcd.setCursor(COL_VAL, 0);
             lcd.printstr(buf);
 
-            snprintf(buf, sizeof(buf), "%3d%%", rh_i);
+            // Humidity field: integer %, fixed width + trailing space
+            int rh_i = (int)lroundf(RH);
+
+            // build "###%"
+            char rhval[8];
+            snprintf(rhval, sizeof(rhval), "%3d%%", rh_i);
+
+            // make a 9-char field (16 - COL_VAL = 9) filled with spaces
+            char rhfield[10];
+            memset(rhfield, ' ', 9);
+            rhfield[9] = '\0';
+
+            // copy value at the start; remaining chars stay as spaces to erase junk
+            size_t n = strlen(rhval);
+            if (n > 9) n = 9;
+            memcpy(rhfield, rhval, n);
+
+            // write exactly 9 characters starting at COL_VAL (no wrap, no leftovers)
             lcd.setCursor(COL_VAL, 1);
-            lcd.printstr(buf);
+            lcd.printstr(rhfield);
+
         }
-        // On read fail: keep last values; don’t log or change labels.
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 Hz
+        // On read fail: keep last values; no error prints.
+
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 Hz update
     }
 }

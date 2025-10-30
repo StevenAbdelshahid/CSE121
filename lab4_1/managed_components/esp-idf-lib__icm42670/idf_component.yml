@@ -1,0 +1,32 @@
+dependencies:
+  esp-idf-lib/esp_idf_lib_helpers:
+    version: '*'
+  esp-idf-lib/i2cdev:
+    version: '*'
+description: Driver for TDK ICM-42670-P 6-Axis IMU
+discussion: https://github.com/esp-idf-lib/core/discussions
+documentation: https://esp-idf-lib.github.io/icm42670/
+files:
+  exclude:
+  - docs/**/*
+issues: https://github.com/esp-idf-lib/icm42670/issues
+license: ISC
+maintainers:
+- Jan Veeh (@janveeh)
+repository: git://github.com/esp-idf-lib/icm42670.git
+repository_info:
+  commit_sha: ffcf152b1583540bceb1f664270889b078318ec3
+  path: .
+targets:
+- esp32
+- esp32c2
+- esp32c3
+- esp32c5
+- esp32c6
+- esp32c61
+- esp32h2
+- esp32p4
+- esp32s2
+- esp32s3
+url: https://github.com/esp-idf-lib/core
+version: 1.0.7
