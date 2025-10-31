@@ -3,4 +3,4 @@ idf_component_register(SRCS "lab4_3.c"
                              "hid_dev.c"
                              "hid_device_le_prf.c"
                     INCLUDE_DIRS "."
-                    REQUIRES nvs_flash bt)
+                    REQUIRES nvs_flash bt driver esp_timer)
