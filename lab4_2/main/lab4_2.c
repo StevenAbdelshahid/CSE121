@@ -136,35 +136,34 @@ static void mouse_move_task(void *pvParameters)
     
     ESP_LOGI(TAG, "Connected! Starting mouse movement...");
     vTaskDelay(pdMS_TO_TICKS(1000));
-    
-    // Move mouse from left to right
-    ESP_LOGI(TAG, "Moving mouse LEFT to RIGHT");
-    
-    // Move right for about 2 seconds (20 steps * 100ms)
-    for (int i = 0; i < 20; i++) {
-        send_mouse_report(10, 0);  // Move right (positive X)
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    
-    // Small pause
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    // Move back left for about 2 seconds
-    ESP_LOGI(TAG, "Moving back from RIGHT to LEFT");
-    for (int i = 0; i < 20; i++) {
-        send_mouse_report(-10, 0);  // Move left (negative X)
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    
-    // Pause for 5 seconds
-    ESP_LOGI(TAG, "Pausing for 5 seconds...");
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    
-    ESP_LOGI(TAG, "Mouse movement demonstration complete");
-    
-    // Keep task alive
+
+    // Loop the movement continuously for testing
+    int cycle = 1;
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG, "Cycle %d: Moving mouse LEFT to RIGHT", cycle);
+
+        // Move right for about 2 seconds (20 steps * 100ms)
+        for (int i = 0; i < 20; i++) {
+            send_mouse_report(10, 0);  // Move right (positive X)
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+        // Small pause
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+        // Move back left for about 2 seconds
+        ESP_LOGI(TAG, "Cycle %d: Moving back from RIGHT to LEFT", cycle);
+        for (int i = 0; i < 20; i++) {
+            send_mouse_report(-10, 0);  // Move left (negative X)
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+        // Pause for 5 seconds
+        ESP_LOGI(TAG, "Cycle %d: Pausing for 5 seconds...", cycle);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+
+        ESP_LOGI(TAG, "Cycle %d complete", cycle);
+        cycle++;
     }
 }
 
