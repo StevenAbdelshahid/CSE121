@@ -53,25 +53,10 @@ static esp_ble_adv_params_t hidd_adv_params = {
     .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 
-// Mouse report structure: buttons (1 byte) + X (1 byte) + Y (1 byte) + wheel (1 byte)
-typedef struct {
-    uint8_t buttons;
-    int8_t x;
-    int8_t y;
-    int8_t wheel;
-} __attribute__((packed)) mouse_report_t;
-
 static void send_mouse_move(int8_t x, int8_t y)
 {
     if (connected) {
-        mouse_report_t report = {
-            .buttons = 0,
-            .x = x,
-            .y = y,
-            .wheel = 0
-        };
-
-        // HID_RPT_ID_MOUSE_IN is defined in hidd_le_prf_int.h as 1
+        // Send mouse movement using HID profile API
         esp_hidd_send_mouse_value(hid_conn_id, 0, x, y);
     }
 }
