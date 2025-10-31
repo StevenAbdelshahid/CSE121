@@ -245,12 +245,12 @@ static void imu_mouse_task(void *arg)
     }
     ESP_LOGI(TAG, "ICM-42670 detected @0x%02X", addr);
 
-    // Configure accelerometer
+    // Configure accelerometer (ignore errors, will retry on I2C failures later)
     const icm42670_accel_fsr_t RANGE = ICM42670_ACCEL_RANGE_4G;
-    ESP_ERROR_CHECK(icm42670_set_accel_fsr(&imu, RANGE));
-    ESP_ERROR_CHECK(icm42670_set_accel_avg(&imu, ICM42670_ACCEL_AVG_8X));
-    ESP_ERROR_CHECK(icm42670_set_accel_odr(&imu, ICM42670_ACCEL_ODR_200HZ));
-    ESP_ERROR_CHECK(icm42670_set_accel_pwr_mode(&imu, ICM42670_ACCEL_ENABLE_LN_MODE));
+    icm42670_set_accel_fsr(&imu, RANGE);
+    icm42670_set_accel_avg(&imu, ICM42670_ACCEL_AVG_8X);
+    icm42670_set_accel_odr(&imu, ICM42670_ACCEL_ODR_200HZ);
+    icm42670_set_accel_pwr_mode(&imu, ICM42670_ACCEL_ENABLE_LN_MODE);
 
     const float inv_lsb_g = 1.0f / lsb_per_g(RANGE);
     sma8_t filt;
