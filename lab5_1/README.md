@@ -19,12 +19,7 @@ This program transmits messages in Morse code using an LED connected to the Rasp
 ## Software Setup
 
 ### Prerequisites:
-The program uses the `pigpio` library for GPIO control. Install it on your Raspberry Pi:
-
-```bash
-sudo apt-get update
-sudo apt-get install pigpio
-```
+No external libraries required! The program uses the Linux sysfs GPIO interface directly.
 
 ### Building:
 ```bash
@@ -35,19 +30,14 @@ This will create the `send` executable.
 
 ### Running:
 
-Before running the program, start the pigpio daemon:
+Run the program with sudo (required for GPIO access):
 ```bash
-sudo pigpiod
-```
-
-Then run the program:
-```bash
-./send <repetitions> "<message>"
+sudo ./send <repetitions> "<message>"
 ```
 
 **Example:**
 ```bash
-./send 4 "hello ESP32"
+sudo ./send 4 "hello ESP32"
 ```
 
 This will transmit "hello ESP32" in Morse code 4 times.
@@ -69,12 +59,12 @@ The program follows standard Morse code timing:
 
 ## Cleaning Up
 
-To stop the pigpio daemon:
-```bash
-sudo killall pigpiod
-```
-
 To remove the compiled program:
 ```bash
 make clean
+```
+
+If the GPIO is still in use after the program exits, you can manually unexport it:
+```bash
+echo 17 | sudo tee /sys/class/gpio/unexport
 ```

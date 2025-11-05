@@ -3,10 +3,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <pigpio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define LED_PIN 17  // GPIO pin for LED (can be changed)
 #define DOT_DURATION 200000  // Duration of a dot in microseconds (200ms)
+
+// GPIO file descriptors
+static int value_fd = -1;
 
 // Morse code table
 const char* morse_table[] = {
@@ -48,6 +52,75 @@ const char* morse_table[] = {
     "----."  // 9
 };
 
+// Initialize GPIO pin using sysfs
+int gpio_init(int pin) {
+    char path[64];
+    int fd;
+
+    // Check if already exported
+    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d", pin);
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        // Export the pin
+        fd = open("/sys/class/gpio/export", O_WRONLY);
+        if (fd < 0) {
+            perror("Failed to open GPIO export");
+            return -1;
+        }
+        dprintf(fd, "%d", pin);
+        close(fd);
+        usleep(100000);  // Wait for export to complete
+    }
+
+    // Set direction to output
+    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", pin);
+    fd = open(path, O_WRONLY);
+    if (fd < 0) {
+        perror("Failed to open GPIO direction");
+        return -1;
+    }
+    write(fd, "out", 3);
+    close(fd);
+
+    // Open value file for writing
+    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
+    value_fd = open(path, O_WRONLY);
+    if (value_fd < 0) {
+        perror("Failed to open GPIO value");
+        return -1;
+    }
+
+    return 0;
+}
+
+// Write to GPIO pin
+void gpio_write(int value) {
+    if (value_fd >= 0) {
+        if (value) {
+            write(value_fd, "1", 1);
+        } else {
+            write(value_fd, "0", 1);
+        }
+        lseek(value_fd, 0, SEEK_SET);  // Reset file position
+    }
+}
+
+// Cleanup GPIO
+void gpio_cleanup(int pin) {
+    if (value_fd >= 0) {
+        gpio_write(0);  // Turn off LED
+        close(value_fd);
+        value_fd = -1;
+    }
+
+    // Unexport the pin
+    int fd = open("/sys/class/gpio/unexport", O_WRONLY);
+    if (fd >= 0) {
+        dprintf(fd, "%d", pin);
+        close(fd);
+    }
+}
+
 // Function to get morse code for a character
 const char* get_morse_code(char c) {
     c = toupper(c);
@@ -63,17 +136,17 @@ const char* get_morse_code(char c) {
 
 // Function to send a dot
 void send_dot() {
-    gpioWrite(LED_PIN, 1);
+    gpio_write(1);
     usleep(DOT_DURATION);
-    gpioWrite(LED_PIN, 0);
+    gpio_write(0);
     usleep(DOT_DURATION);  // Gap between symbols
 }
 
 // Function to send a dash (3 times dot duration)
 void send_dash() {
-    gpioWrite(LED_PIN, 1);
+    gpio_write(1);
     usleep(DOT_DURATION * 3);
-    gpioWrite(LED_PIN, 0);
+    gpio_write(0);
     usleep(DOT_DURATION);  // Gap between symbols
 }
 
@@ -126,16 +199,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Initialize pigpio
-    if (gpioInitialise() < 0) {
-        fprintf(stderr, "Error: Failed to initialize pigpio\n");
-        fprintf(stderr, "Make sure pigpiod daemon is running: sudo pigpiod\n");
+    // Initialize GPIO
+    printf("Initializing GPIO pin %d...\n", LED_PIN);
+    if (gpio_init(LED_PIN) < 0) {
+        fprintf(stderr, "Error: Failed to initialize GPIO\n");
+        fprintf(stderr, "Make sure you run this program with sudo:\n");
+        fprintf(stderr, "  sudo %s %d \"%s\"\n", argv[0], repetitions, argv[2]);
         return 1;
     }
 
-    // Set LED pin as output
-    gpioSetMode(LED_PIN, PI_OUTPUT);
-    gpioWrite(LED_PIN, 0);  // Start with LED off
+    printf("Starting transmission...\n");
+    gpio_write(0);  // Start with LED off
 
     // Send the message multiple times
     for (int i = 0; i < repetitions; i++) {
@@ -148,8 +222,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Cleanup
-    gpioWrite(LED_PIN, 0);  // Ensure LED is off
-    gpioTerminate();
+    printf("Cleaning up...\n");
+    gpio_cleanup(LED_PIN);
 
     return 0;
 }
