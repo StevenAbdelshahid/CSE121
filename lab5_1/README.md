@@ -19,7 +19,12 @@ This program transmits messages in Morse code using an LED connected to the Rasp
 ## Software Setup
 
 ### Prerequisites:
-No external libraries required! The program uses the Linux sysfs GPIO interface directly.
+The program uses **libgpiod** - the modern Linux GPIO library. Install it on your Raspberry Pi:
+
+```bash
+sudo apt-get update
+sudo apt-get install gpiod libgpiod-dev
+```
 
 ### Building:
 ```bash
@@ -64,7 +69,13 @@ To remove the compiled program:
 make clean
 ```
 
-If the GPIO is still in use after the program exits, you can manually unexport it:
+## Testing GPIO
+
+You can test if your GPIO is working with the command-line tool:
 ```bash
-echo 17 | sudo tee /sys/class/gpio/unexport
+# Turn LED on
+gpioset gpiochip0 17=1
+
+# Turn LED off
+gpioset gpiochip0 17=0
 ```

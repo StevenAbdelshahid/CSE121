@@ -3,14 +3,15 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
+#include <gpiod.h>
 
 #define LED_PIN 17  // GPIO pin for LED (can be changed)
 #define DOT_DURATION 200000  // Duration of a dot in microseconds (200ms)
+#define GPIO_CHIP "gpiochip0"  // Raspberry Pi GPIO chip
 
-// GPIO file descriptors
-static int value_fd = -1;
+// GPIO line
+static struct gpiod_chip *chip = NULL;
+static struct gpiod_line *line = NULL;
 
 // Morse code table
 const char* morse_table[] = {
@@ -52,41 +53,27 @@ const char* morse_table[] = {
     "----."  // 9
 };
 
-// Initialize GPIO pin using sysfs
+// Initialize GPIO using libgpiod
 int gpio_init(int pin) {
-    char path[64];
-    int fd;
-
-    // Check if already exported
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d", pin);
-    struct stat st;
-    if (stat(path, &st) != 0) {
-        // Export the pin
-        fd = open("/sys/class/gpio/export", O_WRONLY);
-        if (fd < 0) {
-            perror("Failed to open GPIO export");
-            return -1;
-        }
-        dprintf(fd, "%d", pin);
-        close(fd);
-        usleep(100000);  // Wait for export to complete
-    }
-
-    // Set direction to output
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", pin);
-    fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        perror("Failed to open GPIO direction");
+    // Open GPIO chip
+    chip = gpiod_chip_open_by_name(GPIO_CHIP);
+    if (!chip) {
+        perror("Failed to open GPIO chip");
         return -1;
     }
-    write(fd, "out", 3);
-    close(fd);
 
-    // Open value file for writing
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
-    value_fd = open(path, O_WRONLY);
-    if (value_fd < 0) {
-        perror("Failed to open GPIO value");
+    // Get GPIO line
+    line = gpiod_chip_get_line(chip, pin);
+    if (!line) {
+        perror("Failed to get GPIO line");
+        gpiod_chip_close(chip);
+        return -1;
+    }
+
+    // Request line as output
+    if (gpiod_line_request_output(line, "morse_led", 0) < 0) {
+        perror("Failed to request GPIO line as output");
+        gpiod_chip_close(chip);
         return -1;
     }
 
@@ -95,29 +82,21 @@ int gpio_init(int pin) {
 
 // Write to GPIO pin
 void gpio_write(int value) {
-    if (value_fd >= 0) {
-        if (value) {
-            write(value_fd, "1", 1);
-        } else {
-            write(value_fd, "0", 1);
-        }
-        lseek(value_fd, 0, SEEK_SET);  // Reset file position
+    if (line) {
+        gpiod_line_set_value(line, value);
     }
 }
 
 // Cleanup GPIO
-void gpio_cleanup(int pin) {
-    if (value_fd >= 0) {
-        gpio_write(0);  // Turn off LED
-        close(value_fd);
-        value_fd = -1;
+void gpio_cleanup(void) {
+    if (line) {
+        gpiod_line_set_value(line, 0);  // Turn off LED
+        gpiod_line_release(line);
+        line = NULL;
     }
-
-    // Unexport the pin
-    int fd = open("/sys/class/gpio/unexport", O_WRONLY);
-    if (fd >= 0) {
-        dprintf(fd, "%d", pin);
-        close(fd);
+    if (chip) {
+        gpiod_chip_close(chip);
+        chip = NULL;
     }
 }
 
@@ -223,7 +202,7 @@ int main(int argc, char* argv[]) {
 
     // Cleanup
     printf("Cleaning up...\n");
-    gpio_cleanup(LED_PIN);
+    gpio_cleanup();
 
     return 0;
 }
