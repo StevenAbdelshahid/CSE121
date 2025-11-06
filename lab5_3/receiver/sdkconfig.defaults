@@ -1,0 +1,2 @@
+# GPIO interrupt configuration for high-speed detection
+CONFIG_GPIO_ESP32_SUPPORT_SWITCH_SLP_PULL=n

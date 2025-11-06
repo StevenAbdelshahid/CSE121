@@ -1,0 +1,6 @@
+# ADC Configuration
+# Using ADC1 Channel 0 (GPIO1 on ESP32-C3)
+# Adjust the GPIO pin based on your ESP32 board
+
+# Enable ADC
+CONFIG_ADC_ONESHOT_CTRL_FUNC_IN_IRAM=y
