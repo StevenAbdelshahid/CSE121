@@ -147,9 +147,13 @@ static int read_adc(void) {
 
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
+        // Debug output: show both raw and calibrated values
+        ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, voltage);
         return voltage;
     }
 
+    // Debug output: show raw value only
+    ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
     return adc_raw;
 }
 
