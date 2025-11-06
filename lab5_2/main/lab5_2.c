@@ -32,8 +32,8 @@ static const char *TAG = "morse_receiver";
 #define WORD_GAP_MIN        1200    // Min gap between words
 
 // Light detection threshold
-#define LIGHT_THRESHOLD     1000    // ADC value threshold (adjust based on setup)
-#define SAMPLE_RATE_MS      500     // Sample every 500ms (for debug)
+#define LIGHT_THRESHOLD     1500    // ADC value threshold (adjusted for your setup)
+#define SAMPLE_RATE_MS      10      // Sample every 10ms
 
 // Morse code table
 const char* morse_table[] = {
@@ -147,13 +147,9 @@ static int read_adc(void) {
 
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
-        // Debug output: show both raw and calibrated values
-        ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, voltage);
         return voltage;
     }
 
-    // Debug output: show raw value only
-    ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
     return adc_raw;
 }
 
