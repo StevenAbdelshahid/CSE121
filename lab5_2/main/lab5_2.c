@@ -34,6 +34,7 @@ static const char *TAG = "morse_receiver";
 // Light detection threshold
 #define LIGHT_THRESHOLD     1500    // ADC value threshold (adjusted for your setup)
 #define SAMPLE_RATE_MS      10      // Sample every 10ms
+#define DEBUG_OUTPUT_MS     1000    // Print raw data every 1000ms (1 second)
 
 // Morse code table
 const char* morse_table[] = {
@@ -139,11 +140,15 @@ static void init_adc(void) {
 }
 
 // Read ADC value
-static int read_adc(void) {
+static int read_adc(int* raw_value) {
     int adc_raw = 0;
     int voltage = 0;
 
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, ADC_CHANNEL, &adc_raw));
+
+    if (raw_value != NULL) {
+        *raw_value = adc_raw;
+    }
 
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
@@ -161,14 +166,26 @@ static void morse_receiver_task(void *arg) {
     bool light_on = false;
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
+    int64_t last_debug_time = 0;
 
     ESP_LOGI(TAG, "Starting Morse code receiver...");
     ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
     ESP_LOGI(TAG, "Threshold: %d, adjust if needed", LIGHT_THRESHOLD);
 
     while (1) {
-        int adc_value = read_adc();
+        int adc_raw = 0;
+        int adc_value = read_adc(&adc_raw);
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
+
+        // Debug output at slower rate
+        if (current_time - last_debug_time >= DEBUG_OUTPUT_MS) {
+            if (adc_cali_handle != NULL) {
+                ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, adc_value);
+            } else {
+                ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
+            }
+            last_debug_time = current_time;
+        }
 
         // Detect light state change
         if (adc_value > LIGHT_THRESHOLD && !light_on) {
