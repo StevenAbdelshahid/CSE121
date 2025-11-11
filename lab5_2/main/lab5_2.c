@@ -34,7 +34,6 @@ static const char *TAG = "morse_receiver";
 // Light detection threshold
 #define LIGHT_THRESHOLD     1500    // ADC value threshold (adjusted for your setup)
 #define SAMPLE_RATE_MS      10      // Sample every 10ms
-#define DEBUG_OUTPUT_MS     1000    // Print raw data every 1000ms (1 second)
 
 // Morse code table
 const char* morse_table[] = {
@@ -140,21 +139,29 @@ static void init_adc(void) {
 }
 
 // Read ADC value
-static int read_adc(int* raw_value) {
+static int read_adc(void) {
+    static int counter = 0;
     int adc_raw = 0;
     int voltage = 0;
 
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, ADC_CHANNEL, &adc_raw));
 
-    if (raw_value != NULL) {
-        *raw_value = adc_raw;
-    }
-
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
+
+        // Debug output every 100 calls (1 second at 10ms rate)
+        if (++counter >= 100) {
+            ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, voltage);
+            counter = 0;
+        }
         return voltage;
     }
 
+    // Debug output every 100 calls
+    if (++counter >= 100) {
+        ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
+        counter = 0;
+    }
     return adc_raw;
 }
 
@@ -167,35 +174,13 @@ static void morse_receiver_task(void *arg) {
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
 
-    // Counter-based debug output (more reliable than time-based)
-    uint32_t sample_counter = 0;
-    uint32_t debug_interval = DEBUG_OUTPUT_MS / SAMPLE_RATE_MS;  // Number of samples per debug output
-    uint32_t total_readings = 0;
-
     ESP_LOGI(TAG, "Starting Morse code receiver...");
     ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
     ESP_LOGI(TAG, "Threshold: %d, adjust if needed", LIGHT_THRESHOLD);
-    ESP_LOGI(TAG, "Debug output every %d samples (%d ms)", debug_interval, DEBUG_OUTPUT_MS);
 
     while (1) {
-        int adc_raw = 0;
-        int adc_value = read_adc(&adc_raw);
+        int adc_value = read_adc();
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
-
-        total_readings++;
-        sample_counter++;
-
-        // Debug output at slower rate using counter (more robust)
-        if (sample_counter >= debug_interval) {
-            if (adc_cali_handle != NULL) {
-                ESP_LOGI(TAG, "[#%lu] RAW: %d  VOLTAGE: %d mV  State: %s",
-                         total_readings, adc_raw, adc_value, light_on ? "LIGHT ON" : "dark");
-            } else {
-                ESP_LOGI(TAG, "[#%lu] RAW: %d (no calibration)  State: %s",
-                         total_readings, adc_raw, light_on ? "LIGHT ON" : "dark");
-            }
-            sample_counter = 0;  // Reset counter
-        }
 
         // Detect light state change
         if (adc_value > LIGHT_THRESHOLD && !light_on) {
