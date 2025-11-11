@@ -20,9 +20,9 @@ static const char *TAG = "morse_receiver";
 
 // ADC Configuration
 #define ADC_UNIT            ADC_UNIT_1
-#define ADC_CHANNEL         ADC_CHANNEL_0  // GPIO1 on ESP32-C3
-#define ADC_ATTEN           ADC_ATTEN_DB_12
-#define ADC_BITWIDTH        ADC_BITWIDTH_DEFAULT
+#define ADC_CHANNEL         ADC_CHANNEL_1  // GPIO1 on ESP32-C3
+#define ADC_ATTEN           ADC_ATTEN_DB_6  // 6dB attenuation for 0-2450mV range (better sensitivity)
+#define ADC_BITWIDTH        ADC_BITWIDTH_12
 
 // Morse code timing parameters (in milliseconds)
 #define DOT_DURATION        200     // Base duration for a dot
@@ -32,7 +32,7 @@ static const char *TAG = "morse_receiver";
 #define WORD_GAP_MIN        1200    // Min gap between words
 
 // Light detection threshold
-#define LIGHT_THRESHOLD     1500    // ADC value threshold (adjusted for your setup)
+#define LIGHT_THRESHOLD     200     // 200mV threshold for better sensitivity
 #define SAMPLE_RATE_MS      10      // Sample every 10ms
 
 // Morse code table
