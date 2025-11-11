@@ -32,7 +32,7 @@ static const char *TAG = "morse_receiver";
 #define WORD_GAP_MIN        1200    // Min gap between words
 
 // Light detection threshold
-#define LIGHT_THRESHOLD     50      // 50mV threshold (above ~20mV dark reading)
+#define LIGHT_THRESHOLD     22      // 22mV threshold
 #define SAMPLE_RATE_MS      2       // Sample every 2ms for fast detection
 
 // Morse code table
@@ -140,30 +140,16 @@ static void init_adc(void) {
 
 // Read ADC value
 static int read_adc(void) {
-    static int counter = 0;
     int adc_raw = 0;
     int voltage = 0;
 
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, ADC_CHANNEL, &adc_raw));
 
-    counter++;
-
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
-
-        // Debug output every 500 calls (1 second at 2ms rate)
-        if (counter >= 500) {
-            printf("RAW: %d  VOLTAGE: %d mV\n", adc_raw, voltage);
-            counter = 0;
-        }
         return voltage;
     }
 
-    // Debug output every 500 calls
-    if (counter >= 500) {
-        printf("RAW: %d (no calibration)\n", adc_raw);
-        counter = 0;
-    }
     return adc_raw;
 }
 
@@ -176,21 +162,13 @@ static void morse_receiver_task(void *arg) {
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
 
-    int loop_counter = 0;
-
     ESP_LOGI(TAG, "Starting Morse code receiver...");
     ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
-    ESP_LOGI(TAG, "Threshold: %d, adjust if needed", LIGHT_THRESHOLD);
+    ESP_LOGI(TAG, "Threshold: %d mV", LIGHT_THRESHOLD);
 
     while (1) {
         int adc_value = read_adc();
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
-
-        // Heartbeat every 5000 loops (10 seconds at 2ms rate) to prove task is still running
-        if (++loop_counter >= 5000) {
-            printf(">>> TASK ALIVE at %lld ms <<<\n", current_time);
-            loop_counter = 0;
-        }
 
         // Detect light state change
         if (adc_value > LIGHT_THRESHOLD && !light_on) {
