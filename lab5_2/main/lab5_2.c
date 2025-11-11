@@ -166,25 +166,35 @@ static void morse_receiver_task(void *arg) {
     bool light_on = false;
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
-    int64_t last_debug_time = 0;
+
+    // Counter-based debug output (more reliable than time-based)
+    uint32_t sample_counter = 0;
+    uint32_t debug_interval = DEBUG_OUTPUT_MS / SAMPLE_RATE_MS;  // Number of samples per debug output
+    uint32_t total_readings = 0;
 
     ESP_LOGI(TAG, "Starting Morse code receiver...");
     ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
     ESP_LOGI(TAG, "Threshold: %d, adjust if needed", LIGHT_THRESHOLD);
+    ESP_LOGI(TAG, "Debug output every %d samples (%d ms)", debug_interval, DEBUG_OUTPUT_MS);
 
     while (1) {
         int adc_raw = 0;
         int adc_value = read_adc(&adc_raw);
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
 
-        // Debug output at slower rate
-        if (current_time - last_debug_time >= DEBUG_OUTPUT_MS) {
+        total_readings++;
+        sample_counter++;
+
+        // Debug output at slower rate using counter (more robust)
+        if (sample_counter >= debug_interval) {
             if (adc_cali_handle != NULL) {
-                ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, adc_value);
+                ESP_LOGI(TAG, "[#%lu] RAW: %d  VOLTAGE: %d mV  State: %s",
+                         total_readings, adc_raw, adc_value, light_on ? "LIGHT ON" : "dark");
             } else {
-                ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
+                ESP_LOGI(TAG, "[#%lu] RAW: %d (no calibration)  State: %s",
+                         total_readings, adc_raw, light_on ? "LIGHT ON" : "dark");
             }
-            last_debug_time = current_time;
+            sample_counter = 0;  // Reset counter
         }
 
         // Detect light state change
