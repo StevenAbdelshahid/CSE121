@@ -32,8 +32,8 @@ static const char *TAG = "morse_receiver";
 #define WORD_GAP_MIN        1200    // Min gap between words
 
 // Light detection threshold
-#define LIGHT_THRESHOLD     200     // 200mV threshold for better sensitivity
-#define SAMPLE_RATE_MS      10      // Sample every 10ms
+#define LIGHT_THRESHOLD     50      // 50mV threshold (above ~20mV dark reading)
+#define SAMPLE_RATE_MS      2       // Sample every 2ms for fast detection
 
 // Morse code table
 const char* morse_table[] = {
@@ -151,16 +151,16 @@ static int read_adc(void) {
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
 
-        // Debug output every 100 calls (1 second at 10ms rate)
-        if (counter >= 100) {
+        // Debug output every 500 calls (1 second at 2ms rate)
+        if (counter >= 500) {
             printf("RAW: %d  VOLTAGE: %d mV\n", adc_raw, voltage);
             counter = 0;
         }
         return voltage;
     }
 
-    // Debug output every 100 calls
-    if (counter >= 100) {
+    // Debug output every 500 calls
+    if (counter >= 500) {
         printf("RAW: %d (no calibration)\n", adc_raw);
         counter = 0;
     }
@@ -186,8 +186,8 @@ static void morse_receiver_task(void *arg) {
         int adc_value = read_adc();
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
 
-        // Heartbeat every 1000 loops (10 seconds) to prove task is still running
-        if (++loop_counter >= 1000) {
+        // Heartbeat every 5000 loops (10 seconds at 2ms rate) to prove task is still running
+        if (++loop_counter >= 5000) {
             printf(">>> TASK ALIVE at %lld ms <<<\n", current_time);
             loop_counter = 0;
         }
