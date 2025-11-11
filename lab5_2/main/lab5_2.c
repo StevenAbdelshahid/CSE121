@@ -164,9 +164,9 @@ static void morse_receiver_task(void *arg) {
     int64_t gap_start_time = 0;
     int64_t last_activity_time = 0;
 
-    ESP_LOGI(TAG, "Starting Morse code receiver...");
-    ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
-    ESP_LOGI(TAG, "Threshold: %d mV", LIGHT_THRESHOLD);
+    ESP_LOGI(TAG, "Morse code receiver ready (Threshold: %d mV, Sample: %d ms)", LIGHT_THRESHOLD, SAMPLE_RATE_MS);
+    printf("\n=== RECEIVED MESSAGE ===\n");
+    fflush(stdout);
 
     while (1) {
         int adc_value = read_adc();
@@ -176,12 +176,11 @@ static void morse_receiver_task(void *arg) {
         if (morse_idx > 0 && last_activity_time > 0) {
             int64_t idle_time = current_time - last_activity_time;
             if (idle_time > TIMEOUT_MS) {
-                // Timeout - print buffered letter
+                // Timeout - print buffered letter and newline to end message
                 morse_buffer[morse_idx] = '\0';
                 char decoded = decode_morse(morse_buffer);
                 printf("%c\n", decoded);
                 fflush(stdout);
-                ESP_LOGI(TAG, "Timeout - printed buffered letter");
                 morse_idx = 0;
                 last_activity_time = 0;
             }
@@ -228,13 +227,11 @@ static void morse_receiver_task(void *arg) {
                 // It was a dash
                 if (morse_idx < sizeof(morse_buffer) - 1) {
                     morse_buffer[morse_idx++] = '-';
-                    ESP_LOGI(TAG, "Detected: DASH (%d ms)", pulse_duration);
                 }
             } else if (pulse_duration >= DOT_DURATION / 2) {
                 // It was a dot
                 if (morse_idx < sizeof(morse_buffer) - 1) {
                     morse_buffer[morse_idx++] = '.';
-                    ESP_LOGI(TAG, "Detected: DOT (%d ms)", pulse_duration);
                 }
             }
         }
