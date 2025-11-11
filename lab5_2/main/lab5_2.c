@@ -34,7 +34,7 @@ static const char *TAG = "morse_receiver";
 
 // Light detection threshold
 #define LIGHT_THRESHOLD     22      // 22mV threshold
-#define SAMPLE_RATE_MS      5       // Sample every 5ms for fast detection
+#define SAMPLE_RATE_MS      10      // Sample every 10ms (prevents watchdog, still fast enough)
 
 // Morse code table
 const char* morse_table[] = {
