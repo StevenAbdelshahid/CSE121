@@ -24,17 +24,17 @@ static const char *TAG = "morse_receiver";
 #define ADC_ATTEN           ADC_ATTEN_DB_6  // 6dB attenuation for 0-2450mV range (better sensitivity)
 #define ADC_BITWIDTH        ADC_BITWIDTH_12
 
-// Morse code timing parameters (in milliseconds)
-#define DOT_DURATION        400     // Base duration for a dot (matches transmitter)
-#define DASH_MIN_DURATION   1000    // Minimum duration for a dash (2.5x dot)
-#define SYMBOL_GAP_MAX      800     // Max gap between symbols in same letter
-#define LETTER_GAP_MIN      1000    // Min gap between letters
-#define WORD_GAP_MIN        2400    // Min gap between words
-#define TIMEOUT_MS          3000    // Timeout to print buffered letter if no new signals
+// Morse code timing parameters (in milliseconds) - Fast mode
+#define DOT_DURATION        100     // Base duration for a dot (fast: ~15 WPM)
+#define DASH_MIN_DURATION   250     // Minimum duration for a dash (2.5x dot)
+#define SYMBOL_GAP_MAX      200     // Max gap between symbols in same letter
+#define LETTER_GAP_MIN      250     // Min gap between letters
+#define WORD_GAP_MIN        600     // Min gap between words
+#define TIMEOUT_MS          1000    // Timeout to print buffered letter if no new signals
 
 // Light detection threshold
 #define LIGHT_THRESHOLD     22      // 22mV threshold
-#define SAMPLE_RATE_MS      10      // Sample every 10ms (prevents watchdog timeout)
+#define SAMPLE_RATE_MS      5       // Sample every 5ms for fast detection
 
 // Morse code table
 const char* morse_table[] = {

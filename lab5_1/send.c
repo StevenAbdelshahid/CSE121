@@ -6,7 +6,7 @@
 #include <gpiod.h>
 
 #define LED_PIN 17  // GPIO pin for LED (can be changed)
-#define DOT_DURATION 400000  // Duration of a dot in microseconds (400ms)
+#define DOT_DURATION 100000  // Duration of a dot in microseconds (100ms - fast mode)
 #define GPIO_CHIP "gpiochip0"  // Raspberry Pi GPIO chip
 
 // GPIO line
