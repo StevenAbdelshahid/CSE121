@@ -25,15 +25,16 @@ static const char *TAG = "morse_receiver";
 #define ADC_BITWIDTH        ADC_BITWIDTH_12
 
 // Morse code timing parameters (in milliseconds)
-#define DOT_DURATION        200     // Base duration for a dot
-#define DASH_MIN_DURATION   500     // Minimum duration for a dash (2.5x dot)
-#define SYMBOL_GAP_MAX      400     // Max gap between symbols in same letter
-#define LETTER_GAP_MIN      500     // Min gap between letters
-#define WORD_GAP_MIN        1200    // Min gap between words
+#define DOT_DURATION        400     // Base duration for a dot (matches transmitter)
+#define DASH_MIN_DURATION   1000    // Minimum duration for a dash (2.5x dot)
+#define SYMBOL_GAP_MAX      800     // Max gap between symbols in same letter
+#define LETTER_GAP_MIN      1000    // Min gap between letters
+#define WORD_GAP_MIN        2400    // Min gap between words
+#define TIMEOUT_MS          3000    // Timeout to print buffered letter if no new signals
 
 // Light detection threshold
 #define LIGHT_THRESHOLD     22      // 22mV threshold
-#define SAMPLE_RATE_MS      2       // Sample every 2ms for fast detection
+#define SAMPLE_RATE_MS      10      // Sample every 10ms (prevents watchdog timeout)
 
 // Morse code table
 const char* morse_table[] = {
@@ -161,6 +162,7 @@ static void morse_receiver_task(void *arg) {
     bool light_on = false;
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
+    int64_t last_activity_time = 0;
 
     ESP_LOGI(TAG, "Starting Morse code receiver...");
     ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
@@ -170,11 +172,27 @@ static void morse_receiver_task(void *arg) {
         int adc_value = read_adc();
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
 
+        // Check for timeout - if no activity and we have buffered morse code
+        if (morse_idx > 0 && last_activity_time > 0) {
+            int64_t idle_time = current_time - last_activity_time;
+            if (idle_time > TIMEOUT_MS) {
+                // Timeout - print buffered letter
+                morse_buffer[morse_idx] = '\0';
+                char decoded = decode_morse(morse_buffer);
+                printf("%c\n", decoded);
+                fflush(stdout);
+                ESP_LOGI(TAG, "Timeout - printed buffered letter");
+                morse_idx = 0;
+                last_activity_time = 0;
+            }
+        }
+
         // Detect light state change
         if (adc_value > LIGHT_THRESHOLD && !light_on) {
             // Light turned ON
             light_on = true;
             light_start_time = current_time;
+            last_activity_time = current_time;
 
             // Check if gap before this was long enough for letter/word boundary
             if (gap_start_time > 0) {
@@ -201,6 +219,7 @@ static void morse_receiver_task(void *arg) {
             // Light turned OFF
             light_on = false;
             gap_start_time = current_time;
+            last_activity_time = current_time;
 
             // Determine if it was a dot or dash
             int pulse_duration = current_time - light_start_time;
