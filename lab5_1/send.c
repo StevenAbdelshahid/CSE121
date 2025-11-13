@@ -6,7 +6,7 @@
 #include <gpiod.h>
 
 #define LED_PIN 17  // GPIO pin for LED (can be changed)
-#define DOT_DURATION 200000  // Duration of a dot in microseconds (200ms)
+#define DOT_DURATION 100000  // Duration of a dot in microseconds (100ms - fast mode)
 #define GPIO_CHIP "gpiochip0"  // Raspberry Pi GPIO chip
 
 // GPIO line
@@ -70,8 +70,8 @@ int gpio_init(int pin) {
         return -1;
     }
 
-    // Request line as output
-    if (gpiod_line_request_output(line, "morse_led", 0) < 0) {
+    // Request line as output (start with LED OFF - active-low, so initial value = 1)
+    if (gpiod_line_request_output(line, "morse_led", 1) < 0) {
         perror("Failed to request GPIO line as output");
         gpiod_chip_close(chip);
         return -1;
@@ -90,7 +90,7 @@ void gpio_write(int value) {
 // Cleanup GPIO
 void gpio_cleanup(void) {
     if (line) {
-        gpiod_line_set_value(line, 0);  // Turn off LED
+        gpiod_line_set_value(line, 1);  // Turn off LED (active-low)
         gpiod_line_release(line);
         line = NULL;
     }
@@ -115,17 +115,17 @@ const char* get_morse_code(char c) {
 
 // Function to send a dot
 void send_dot() {
-    gpio_write(1);
+    gpio_write(0);  // Turn LED ON (active-low)
     usleep(DOT_DURATION);
-    gpio_write(0);
+    gpio_write(1);  // Turn LED OFF (active-low)
     usleep(DOT_DURATION);  // Gap between symbols
 }
 
 // Function to send a dash (3 times dot duration)
 void send_dash() {
-    gpio_write(1);
+    gpio_write(0);  // Turn LED ON (active-low)
     usleep(DOT_DURATION * 3);
-    gpio_write(0);
+    gpio_write(1);  // Turn LED OFF (active-low)
     usleep(DOT_DURATION);  // Gap between symbols
 }
 
@@ -188,7 +188,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Starting transmission...\n");
-    gpio_write(0);  // Start with LED off
+    gpio_write(1);  // Start with LED off (active-low)
 
     // Send the message multiple times
     for (int i = 0; i < repetitions; i++) {

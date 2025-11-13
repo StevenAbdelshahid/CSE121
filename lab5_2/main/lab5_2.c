@@ -20,20 +20,21 @@ static const char *TAG = "morse_receiver";
 
 // ADC Configuration
 #define ADC_UNIT            ADC_UNIT_1
-#define ADC_CHANNEL         ADC_CHANNEL_0  // GPIO1 on ESP32-C3
-#define ADC_ATTEN           ADC_ATTEN_DB_12
-#define ADC_BITWIDTH        ADC_BITWIDTH_DEFAULT
+#define ADC_CHANNEL         ADC_CHANNEL_1  // GPIO1 on ESP32-C3
+#define ADC_ATTEN           ADC_ATTEN_DB_6  // 6dB attenuation for 0-2450mV range (better sensitivity)
+#define ADC_BITWIDTH        ADC_BITWIDTH_12
 
-// Morse code timing parameters (in milliseconds)
-#define DOT_DURATION        200     // Base duration for a dot
-#define DASH_MIN_DURATION   500     // Minimum duration for a dash (2.5x dot)
-#define SYMBOL_GAP_MAX      400     // Max gap between symbols in same letter
-#define LETTER_GAP_MIN      500     // Min gap between letters
-#define WORD_GAP_MIN        1200    // Min gap between words
+// Morse code timing parameters (in milliseconds) - Fast mode
+#define DOT_DURATION        100     // Base duration for a dot (fast: ~15 WPM)
+#define DASH_MIN_DURATION   250     // Minimum duration for a dash (2.5x dot)
+#define SYMBOL_GAP_MAX      200     // Max gap between symbols in same letter
+#define LETTER_GAP_MIN      250     // Min gap between letters
+#define WORD_GAP_MIN        600     // Min gap between words
+#define TIMEOUT_MS          1000    // Timeout to print buffered letter if no new signals
 
 // Light detection threshold
-#define LIGHT_THRESHOLD     1000    // ADC value threshold (adjust based on setup)
-#define SAMPLE_RATE_MS      10      // Sample every 10ms
+#define LIGHT_THRESHOLD     22      // 22mV threshold
+#define SAMPLE_RATE_MS      10      // Sample every 10ms (prevents watchdog, still fast enough)
 
 // Morse code table
 const char* morse_table[] = {
@@ -147,13 +148,9 @@ static int read_adc(void) {
 
     if (adc_cali_handle != NULL) {
         ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage));
-        // Debug output: show both raw and calibrated values
-        ESP_LOGI(TAG, "RAW: %d  VOLTAGE: %d mV", adc_raw, voltage);
         return voltage;
     }
 
-    // Debug output: show raw value only
-    ESP_LOGI(TAG, "RAW: %d (no calibration)", adc_raw);
     return adc_raw;
 }
 
@@ -165,20 +162,36 @@ static void morse_receiver_task(void *arg) {
     bool light_on = false;
     int64_t light_start_time = 0;
     int64_t gap_start_time = 0;
+    int64_t last_activity_time = 0;
 
-    ESP_LOGI(TAG, "Starting Morse code receiver...");
-    ESP_LOGI(TAG, "Place photodiode at least 1mm away from LED");
-    ESP_LOGI(TAG, "Threshold: %d, adjust if needed", LIGHT_THRESHOLD);
+    ESP_LOGI(TAG, "Morse code receiver ready (Threshold: %d mV, Sample: %d ms)", LIGHT_THRESHOLD, SAMPLE_RATE_MS);
+    printf("\n=== RECEIVED MESSAGE ===\n");
+    fflush(stdout);
 
     while (1) {
         int adc_value = read_adc();
         int64_t current_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
+
+        // Check for timeout - if no activity and we have buffered morse code
+        if (morse_idx > 0 && last_activity_time > 0) {
+            int64_t idle_time = current_time - last_activity_time;
+            if (idle_time > TIMEOUT_MS) {
+                // Timeout - print buffered letter and newline to end message
+                morse_buffer[morse_idx] = '\0';
+                char decoded = decode_morse(morse_buffer);
+                printf("%c\n", decoded);
+                fflush(stdout);
+                morse_idx = 0;
+                last_activity_time = 0;
+            }
+        }
 
         // Detect light state change
         if (adc_value > LIGHT_THRESHOLD && !light_on) {
             // Light turned ON
             light_on = true;
             light_start_time = current_time;
+            last_activity_time = current_time;
 
             // Check if gap before this was long enough for letter/word boundary
             if (gap_start_time > 0) {
@@ -205,6 +218,7 @@ static void morse_receiver_task(void *arg) {
             // Light turned OFF
             light_on = false;
             gap_start_time = current_time;
+            last_activity_time = current_time;
 
             // Determine if it was a dot or dash
             int pulse_duration = current_time - light_start_time;
@@ -213,13 +227,11 @@ static void morse_receiver_task(void *arg) {
                 // It was a dash
                 if (morse_idx < sizeof(morse_buffer) - 1) {
                     morse_buffer[morse_idx++] = '-';
-                    ESP_LOGI(TAG, "Detected: DASH (%d ms)", pulse_duration);
                 }
             } else if (pulse_duration >= DOT_DURATION / 2) {
                 // It was a dot
                 if (morse_idx < sizeof(morse_buffer) - 1) {
                     morse_buffer[morse_idx++] = '.';
-                    ESP_LOGI(TAG, "Detected: DOT (%d ms)", pulse_duration);
                 }
             }
         }
