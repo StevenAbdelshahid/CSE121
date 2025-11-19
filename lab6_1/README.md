@@ -6,31 +6,25 @@ This lab implements an ultrasonic distance measurement system using the RCWL-160
 ## Hardware
 - **ESP32-C3 Development Board**
 - **RCWL-1601 Ultrasonic Sensor** (or HC-SR04 compatible)
-- **Temperature Sensor** (SHTC3, SHT3x, AHT20, or SI7021)
 
 ## Pin Configuration
 - **Ultrasonic Sensor:**
-  - Trigger Pin: GPIO2
-  - Echo Pin: GPIO3
-- **I2C (Temperature Sensor):**
-  - SDA: GPIO10
-  - SCL: GPIO8
+  - Trigger Pin: GPIO4
+  - Echo Pin: GPIO5
+  - VCC: 3.3V
+  - GND: GND
 
 ## Features
 1. **Temperature-Compensated Distance Measurement**
-   - Uses actual temperature to adjust speed of sound calculation
+   - Uses fixed 23°C temperature for speed of sound calculation
    - Speed of sound formula: v = 331.4 + 0.606 * T (m/s)
-   - Temperature range: 0-50°C
+   - Simple implementation - no external temp sensor needed
 
 2. **Multi-Sample Median Filtering**
    - Takes 5 measurements per reading
    - Uses median value to reduce noise and improve accuracy
 
-3. **Auto-Detection of Temperature Sensors**
-   - Supports SHTC3, SHT3x, AHT20, and SI7021
-   - Falls back to 20°C default if no sensor detected
-
-4. **Accurate Timing**
+3. **Accurate Timing**
    - Uses `esp_timer_get_time()` for microsecond-precision timing
    - Generates precise 10µs trigger pulse
 
