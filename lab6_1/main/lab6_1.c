@@ -92,20 +92,28 @@ static void ultrasonic_init(void) {
 
 // Measure echo pulse duration in microseconds
 static int64_t measure_echo_pulse(void) {
+    // Check echo pin state before we start
+    int echo_before = gpio_get_level(ECHO_PIN);
+
     // Ensure trigger is low
     gpio_set_level(TRIG_PIN, 0);
-    vTaskDelay(pdMS_TO_TICKS(2));
+    esp_rom_delay_us(5);
 
     // Send 10us trigger pulse
     gpio_set_level(TRIG_PIN, 1);
     esp_rom_delay_us(10);
     gpio_set_level(TRIG_PIN, 0);
 
+    // Short delay after trigger
+    esp_rom_delay_us(2);
+
+    int echo_after = gpio_get_level(ECHO_PIN);
+
     // Wait for echo to go high (with 50ms timeout)
     int64_t wait_start = esp_timer_get_time();
     while (gpio_get_level(ECHO_PIN) == 0) {
         if ((esp_timer_get_time() - wait_start) > 50000) {
-            ESP_LOGW(TAG, "Timeout waiting for echo HIGH");
+            ESP_LOGW(TAG, "Timeout waiting for echo HIGH (before=%d, after=%d)", echo_before, echo_after);
             return -1;
         }
     }
@@ -188,6 +196,15 @@ void app_main(void) {
 
     // Initial delay to let sensor stabilize
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // GPIO diagnostic - check if pins are working
+    ESP_LOGI(TAG, "Initial ECHO pin level: %d", gpio_get_level(ECHO_PIN));
+    gpio_set_level(TRIG_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_LOGI(TAG, "TRIG=1, ECHO level: %d", gpio_get_level(ECHO_PIN));
+    gpio_set_level(TRIG_PIN, 0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_LOGI(TAG, "TRIG=0, ECHO level: %d", gpio_get_level(ECHO_PIN));
 
     while (1) {
         // Read temperature
