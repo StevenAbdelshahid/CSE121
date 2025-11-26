@@ -23,7 +23,7 @@
 #include "sdkconfig.h"
 
 /* Server configuration - CHANGE THIS to your server's IP */
-#define SERVER_IP "192.168.43.1"  // Replace with your phone/laptop IP
+#define SERVER_IP "172.20.10.2"  // Replace with your phone/laptop IP
 #define SERVER_PORT "1234"
 
 static const char *TAG = "lab7_2";
