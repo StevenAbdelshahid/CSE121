@@ -3,7 +3,7 @@
 This lab integrates GET and POST requests to create a complete weather station:
 1. ESP32 GETs location from server
 2. ESP32 GETs outdoor weather from wttr.in for that location
-3. ESP32 reads its onboard temperature sensor
+3. ESP32 reads temperature data (simulated for ESP-IDF v5.1.6 compatibility)
 4. ESP32 POSTs both temperatures to server
 
 ## Step 1: Configure Server Location
@@ -37,7 +37,7 @@ The server will:
 ## Step 3: Configure ESP32
 
 1. Edit `main/http_request_example_main.c`
-2. Update line 28 with your server's IP:
+2. Update line 29 with your server's IP:
 ```c
 #define SERVER_IP "192.168.43.1"  // Replace with YOUR IP
 ```
@@ -105,4 +105,4 @@ curl -X POST http://YOUR_SERVER_IP:1234/ -d "Test data"
 - The cycle repeats every 10 seconds
 - Both ESP32 and server log all information
 - Make sure all devices are on the same network
-- The ESP32 sensor reads chip temperature (40-60°C typical)
+- Uses simulated temperature sensor (20-30°C) for ESP-IDF v5.1.6 compatibility

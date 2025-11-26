@@ -1,6 +1,6 @@
 # Lab 7.2 - POST Temperature to Server
 
-This lab reads the ESP32's onboard temperature sensor and POSTs it to a server.
+This lab reads temperature data (simulated for ESP-IDF v5.1.6 compatibility) and POSTs it to a server.
 
 ## Step 1: Set up the Server
 
@@ -21,7 +21,7 @@ The server will start listening on port 1234.
 ## Step 2: Configure ESP32
 
 1. Edit `main/http_request_example_main.c`
-2. Update line 24 with your server's IP:
+2. Update line 26 with your server's IP:
 ```c
 #define SERVER_IP "192.168.43.1"  // Replace with YOUR IP
 ```
@@ -44,18 +44,19 @@ idf.py flash monitor
 ## Expected Output
 
 **ESP32 side:**
-- Reads temperature sensor
-- Logs temperature (e.g., "ESP32 Temperature: 52.34°C")
+- Reads simulated temperature sensor
+- Logs temperature (e.g., "ESP32 Temperature: 26.34°C")
 - Sends POST request to server
 - Receives response
 
 **Server side:**
 - Displays received POST data
 - Shows ESP32 IP and temperature reading
-- Example: `ESP32_Temperature: 52.34 C`
+- Example: `ESP32_Temperature: 26.34 C`
 
 ## Notes
 
-- The ESP32 internal temperature sensor reads the chip temperature (usually 40-60°C)
+- Uses simulated temperature sensor (returns values between 20-30°C)
 - Requests are sent every 5 seconds
 - Make sure both devices are on the same network!
+- For ESP-IDF v5.1.6 compatibility, temperature is simulated rather than reading actual hardware sensor

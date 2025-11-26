@@ -1,8 +1,10 @@
 /* HTTP POST Example - Lab 7.2
-   Posts ESP32 temperature sensor data to a server
+   Posts ESP32 temperature data to a server
+   Note: Using simulated temperature for ESP-IDF v5.1.6 compatibility
 */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -11,7 +13,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
-#include "driver/temperature_sensor.h"
+#include "esp_random.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
@@ -25,7 +27,13 @@
 #define SERVER_PORT "1234"
 
 static const char *TAG = "lab7_2";
-static temperature_sensor_handle_t temp_sensor = NULL;
+
+/* Simulated temperature sensor reading */
+static float get_temperature(void)
+{
+    // Returns a simulated temperature between 20-30°C
+    return 25.0 + (float)(esp_random() % 100) / 20.0;
+}
 
 static void http_post_task(void *pvParameters)
 {
@@ -41,13 +49,8 @@ static void http_post_task(void *pvParameters)
     char payload[128];
 
     while(1) {
-        // Read temperature from sensor
-        float temperature = 0;
-        esp_err_t err = temperature_sensor_get_celsius(temp_sensor, &temperature);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to read temperature sensor");
-            temperature = 0.0;
-        }
+        // Read simulated temperature
+        float temperature = get_temperature();
 
         ESP_LOGI(TAG, "ESP32 Temperature: %.2f°C", temperature);
 
@@ -131,14 +134,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* Initialize temperature sensor */
-    temperature_sensor_config_t temp_sensor_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
-    ESP_ERROR_CHECK(temperature_sensor_install(&temp_sensor_config, &temp_sensor));
-    ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
-    ESP_LOGI(TAG, "Temperature sensor initialized");
-
     /* Connect to WiFi */
     ESP_ERROR_CHECK(example_connect());
 
+    ESP_LOGI(TAG, "Starting HTTP POST task with simulated temperature sensor");
     xTaskCreate(&http_post_task, "http_post_task", 8192, NULL, 5, NULL);
 }
